@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  web:
+    # image: php:8.1-apache
+    container_name: php_web
+    ports:
+      - "8080:80"
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - db
+    links:
+      - mailhog
+    environment:
+      MAILHOG_HOST: mailhog
+    networks:
+      - app_net
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+  db:
+    image: mysql:5.7
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: plant_stress_db
+      MYSQL_USER: iot
+      MYSQL_PASSWORD: iot123
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - app_net
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: always
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    depends_on:
+      - db
+    networks:
+      - app_net
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "8025:8025"   # MailHog Web UI
+      - "1025:1025"   # SMTP Port
+    networks:
+      - app_net
+
+volumes:
+  db_data:
+
+networks:
+  app_net:
+    driver: bridge
