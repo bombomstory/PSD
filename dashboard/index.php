@@ -22,7 +22,7 @@
         <span class="dot"></span><span id="badge-txt">กำลังเชื่อมต่อ…</span>
       </div>
       <div class="poll-label">
-        อัปเดตทุก 10 วินาที · ดึงล่าสุด <span id="last-fetch">--</span>
+        อัปเดตทุก 5 วินาที · ดึงล่าสุด <span id="last-fetch">--</span>
         <span class="poll-countdown" id="countdown" style="--prog:0%"></span>
       </div>
     </div>
