@@ -58,15 +58,19 @@ $infMs    = (float)($data['inference_ms']          ?? 0);
 $fft      = (float)($data['fft_energy']            ?? 0);
 $uptime   = (int)($data['uptime_ms']               ?? 0);
 
+// 🚀 รับค่า features array
+$features = isset($data['features']) && is_array($data['features']) ? json_encode($data['features']) : '[]';
+
 try {
     $conn = getConnection();
+    // 🚀 เพิ่ม features_json และเปลี่ยน bind_param เป็น sissdddsi
     $stmt = $conn->prepare(
         "INSERT INTO sensor_log
-           (device_id,class_id,class_label,confidence,soil_moisture,inference_ms,fft_energy,uptime_ms)
-         VALUES (?,?,?,?,?,?,?,?)"
+           (device_id,class_id,class_label,confidence,soil_moisture,inference_ms,fft_energy,features_json,uptime_ms)
+         VALUES (?,?,?,?,?,?,?,?,?)"
     );
-    $stmt->bind_param('sissdddi',
-        $device,$classId,$classLbl,$conf,$soil,$infMs,$fft,$uptime);
+    $stmt->bind_param('sissdddsi',
+        $device,$classId,$classLbl,$conf,$soil,$infMs,$fft,$features,$uptime);
     $stmt->execute();
     $id = $conn->insert_id;
     $stmt->close();

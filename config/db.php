@@ -3,8 +3,8 @@
 // XAMPP ปกติ: user=root, pass="" (ว่างเปล่า)
 define('DB_HOST', 'db');
 define('DB_PORT', 3306);
-define('DB_USER', 'iot');
-define('DB_PASS', 'iot123');
+define('DB_USER', 'kpswacth_reg');
+define('DB_PASS', 'regP@ssw0rd');
 define('DB_NAME', 'plant_stress_db');
 
 // บังคับให้ MySQLi throw Exception เมื่อเกิด error

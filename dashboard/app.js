@@ -4,7 +4,7 @@
  */
 
 const API       = '../api/query.php';
-const POLL_MS   = 10000;   // 10 วินาที
+const POLL_MS   = 5000;   // 5 วินาที
 const DAYS      = 7;
 
 const STATUS = {

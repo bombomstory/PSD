@@ -20,7 +20,13 @@ $conn   = getConnection();
 
 function q_latest(mysqli $c): array {
     $r = $c->query("SELECT * FROM sensor_log ORDER BY id DESC LIMIT 1");
-    return $r->fetch_assoc() ?: [];
+    $row = $r->fetch_assoc() ?: [];
+    // 🚀 แปลงสตริงให้กลับเป็น Array ก่อนส่งไปหน้าเว็บ
+    if (isset($row['features_json'])) {
+        $row['features'] = json_decode($row['features_json'], true);
+        unset($row['features_json']); // ลบตัวดิบทิ้งเพื่อความสะอาด
+    }
+    return $row;
 }
 
 function q_kpi(mysqli $c): array {
