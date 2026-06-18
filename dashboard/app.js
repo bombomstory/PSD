@@ -124,36 +124,54 @@ function renderKPI(d) {
   if (dn) dn.textContent = 'จำนวน Records ทั้งหมด: '+fmtK(kpi.total_records)+' Records';
 }
 
-/* -------- line chart: daily accuracy -------- */
-function renderAcc(rows) {
-  const labels = rows.map(r => fmtDayShort(r.day));
-  const data   = rows.map(r => +(+r.acc_pct).toFixed(1));
-  if (!charts.acc) {
-    charts.acc = new Chart($('chartAcc'), {
-      type:'line',
-      data:{ labels, datasets:[
-        { label:'TinyML Accuracy (%)', data,
-          borderColor:'#2E7D32', borderWidth:2.5, tension:0.38,
-          fill:true, backgroundColor:'rgba(46,125,50,.10)',
-          pointRadius:4, pointBackgroundColor:'#2E7D32' },
-        { label:'RMS Threshold',
-          data: data.map(() => 91.8),
-          borderColor:'#1565C0', borderWidth:1.8, borderDash:[6,4],
-          pointRadius:0, fill:false },
-      ]},
-      options:{ responsive:true,
-        plugins:{ legend:{ labels:{ font:thFont, color:txtClr } } },
-        scales:{
-          y:{ min:80, max:100, ticks:{ color:txtClr, font:thFont },
-              grid:{ color:gridClr } },
-          x:{ ticks:{ color:txtClr, font:thFont }, grid:{ color:gridClr } },
+/* -------- Line chart: Spectral Bands 0-31 -------- */
+function renderSpectrumBands(featuresArray) {
+  // ตรวจสอบข้อมูล หากไม่มีให้สร้างอาเรย์ค่า 0 จำลองไว้ 32 ช่อง
+  if (!featuresArray || featuresArray.length !== 32) {
+     featuresArray = Array(32).fill(0);
+  }
+  // สร้าง Label เป็นตัวเลข 0 ถึง 31
+  const labels = Array.from({length: 32}, (_, i) => i.toString());
+
+  if (!charts.specBands) {
+    charts.specBands = new Chart($('chartSpectrumBands'), {
+      type: 'line', // 🚀 เปลี่ยนจาก 'bar' เป็น 'line'
+      data: { 
+        labels, 
+        datasets: [{ 
+          label: 'พลังงานเสียง (Amplitude)', 
+          data: featuresArray,
+          borderColor: '#2E7D32',       // สีเส้นขอบกราฟ (สีเขียว)
+          borderWidth: 2.5,             // ความหนาของเส้น
+          tension: 0.38,                // 🚀 ทำให้เส้นโค้งมนสมูท (0 = เหลี่ยมตรง, 0.4 = โค้ง)
+          fill: true,                   // 🚀 เปิดการเติมสีใต้กราฟ
+          backgroundColor: 'rgba(46,125,50,0.15)', // สีใต้กราฟแบบโปร่งแสง
+          pointRadius: 2,               // ขนาดจุดบนเส้นกราฟ (ปรับให้เล็กเพื่อไม่ให้รก)
+          pointBackgroundColor: '#2E7D32',
+          pointHoverRadius: 5
+        }]
+      },
+      options: { 
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { 
+            min: 0, 
+            max: 1.0, // สเกล Normalized 0-1
+            ticks: { color: txtClr, font: thFont }, 
+            grid: { color: gridClr } 
+          },
+          x: { 
+            ticks: { color: txtClr, font: thFont, maxRotation: 0, autoSkip: false, font:{size: 9} }, 
+            grid: { display: false } 
+          },
         },
       },
     });
   } else {
-    charts.acc.data.labels = labels;
-    charts.acc.data.datasets[0].data = data;
-    charts.acc.update('none');
+    // อัปเดตข้อมูลกราฟเมื่อมี Data ใหม่เข้ามา
+    charts.specBands.data.datasets[0].data = featuresArray;
+    charts.specBands.update('none');
   }
 }
 
@@ -163,20 +181,64 @@ function renderDonut(rows) {
   const data   = rows.map(r => +r.cnt);
   const colors = rows.map(r => STATUS[r.class_id]?.col || '#555');
   const total  = data.reduce((a,b)=>a+b, 0);
-  $('donut-center').innerHTML = `${fmtK(total)}<small>Records</small>`;
+  
+  // (ไม่จำเป็นต้องใช้ div HTML ซ้อนทับแล้ว แนะนำให้ลบ <div id="donut-center"> ออกจากไฟล์ index.php ได้เลยค่ะ)
+  const donutCenterEl = $('donut-center');
+  if (donutCenterEl) donutCenterEl.style.display = 'none'; 
+  
   if (!charts.donut) {
     charts.donut = new Chart($('chartDonut'), {
       type:'doughnut',
       data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
-      options:{ cutout:'65%',
-        plugins:{ legend:{ position:'right', labels:{ font:thFont, color:txtClr, padding:12,
-          boxWidth:14, boxHeight:14 } } },
+      options:{ 
+        cutout:'65%',
+        plugins:{ 
+          legend:{ 
+            position:'right', 
+            labels:{ font:thFont, color:txtClr, padding:12, boxWidth:14, boxHeight:14 } 
+          },
+          // 1. ส่งค่าตัวเลขรวมเข้าไปใน Plugin ของเรา
+          centerTextPlugin: { text: fmtK(total) } 
+        },
       },
+      // 2. แทรก Custom Plugin เพื่อวาดข้อความให้อยู่กึ่งกลางวงแหวนพอดี
+      plugins: [{
+        id: 'centerTextPlugin',
+        beforeDraw(chart) {
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return;
+          
+          // คำนวณหาจุดกึ่งกลางของวงโดนัท (ตัดพื้นที่ของ Legend ออกไปแล้ว)
+          const centerX = chartArea.left + chartArea.width / 2;
+          const centerY = chartArea.top + chartArea.height / 2;
+          
+          const text = chart.config.options.plugins.centerTextPlugin.text;
+          
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          // วาดตัวเลขจำนวน
+          ctx.font = '800 1.35rem "Noto Sans Thai", sans-serif';
+          ctx.fillStyle = '#212121';
+          ctx.fillText(text, centerX, centerY - 6);
+          
+          // วาดข้อความคำว่า Records
+          ctx.font = '400 0.65rem "Noto Sans Thai", sans-serif';
+          ctx.fillStyle = '#757575';
+          ctx.fillText('Records', centerX, centerY + 14);
+          
+          ctx.restore();
+        }
+      }]
     });
   } else {
     charts.donut.data.labels = labels;
     charts.donut.data.datasets[0].data   = data;
     charts.donut.data.datasets[0].backgroundColor = colors;
+    
+    // อัปเดตตัวเลขเมื่อมีข้อมูลใหม่เข้ามา
+    charts.donut.options.plugins.centerTextPlugin.text = fmtK(total);
     charts.donut.update('none');
   }
 }
@@ -253,7 +315,7 @@ async function refresh() {
     $('last-fetch').textContent = new Date().toLocaleTimeString('th-TH');
     resetCountdown();
     renderKPI(d);
-    renderAcc(d.daily_accuracy   || []);
+    renderSpectrumBands(d.latest?.features || []);
     renderDonut(d.class_dist     || []);
     renderSpec(d.spectral_trend  || []);
     renderTable(d.recent         || []);

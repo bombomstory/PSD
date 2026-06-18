@@ -137,9 +137,9 @@
   </div>
 
   <!-- ===== Line Chart ===== -->
-  <div class="chart-card chart-main">
-    <h4>ความแม่นยำรายวัน TinyML vs. RMS Threshold</h4>
-    <canvas id="chartAcc"></canvas>
+<div class="chart-card chart-main">
+    <h4>สเปกตรัมพลังงานคลื่นเสียงล่าสุด (Bands 0-31)</h4>
+    <canvas id="chartSpectrumBands"></canvas>
   </div>
 
   <!-- ===== Donut Chart ===== -->

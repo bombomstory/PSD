@@ -12,15 +12,18 @@ function buildWhere(string $cls, string $dev, string $df, string $dt): string
     $parts = [];
     if ($cls !== '')   $parts[] = "class_id = ".(int)$cls;
     if ($dev !== '')   $parts[] = "device_id = '".addslashes($dev)."'";
-    if ($df  !== '')   $parts[] = "DATE(created_at) >= '".addslashes($df)."'";
-    if ($dt  !== '')   $parts[] = "DATE(created_at) <= '".addslashes($dt)."'";
+    
+    // เปรียบเทียบกับ created_at (Datetime) โดยตรง รองรับรูปแบบจาก Flatpickr (Y-m-d H:i:s)
+    if ($df  !== '')   $parts[] = "created_at >= '".addslashes($df)."'";
+    if ($dt  !== '')   $parts[] = "created_at <= '".addslashes($dt)."'";
+    
     return $parts ? 'WHERE '.implode(' AND ', $parts) : '';
 }
 function q(string $v): string { return htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); }
 
 /* ===== กรอง params ===== */
-$fClass = $_GET['f_class']     ?? ($_POST['f_class']     ?? '');
-$fDev   = $_GET['f_device']    ?? ($_POST['f_device']    ?? '');
+$fClass = $_GET['f_class']     ?? ($_POST['f_class']    ?? '');
+$fDev   = $_GET['f_device']    ?? ($_POST['f_device']   ?? '');
 $fFrom  = $_GET['f_date_from'] ?? '';
 $fTo    = $_GET['f_date_to']   ?? '';
 
@@ -40,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ลบทั้งหมดตาม filter ที่เลือก
     if (!empty($_POST['delete_filtered'])) {
-        $where = buildWhere($fClass, $fDev, '', '');
+        $where = buildWhere($fClass, $fDev, $fFrom, $fTo);
         $conn->query("DELETE FROM sensor_log $where");
         $aff = $conn->affected_rows;
         $msg = "ลบ $aff แถว (ตามตัวกรองที่เลือก)";
@@ -115,10 +118,10 @@ $CLS = [
 <title>Admin Panel — Plant Stress</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
 
-<!-- ===== Admin Header ===== -->
 <header class="ah">
   <div class="ah-inner">
     <div>
@@ -140,7 +143,6 @@ $CLS = [
   <div class="alert alert-<?=$msgType?>"><?=q($msg)?></div>
 <?php endif; ?>
 
-<!-- ===== Stats Strip ===== -->
 <div class="stat-strip">
   <div class="ss-item">
     <span class="ss-n"><?=number_format($stats['total'] ?? 0)?></span>
@@ -176,7 +178,6 @@ $CLS = [
   </div>
 </div>
 
-<!-- ===== Filter Bar ===== -->
 <form class="filter-bar" method="get" action="index.php">
   <select name="f_class">
     <option value="">— คลาสทั้งหมด —</option>
@@ -192,14 +193,14 @@ $CLS = [
     <?php endforeach; ?>
   </select>
 
-  <input type="date" name="f_date_from" value="<?=q($fFrom)?>" title="ตั้งแต่วัน">
-  <input type="date" name="f_date_to"   value="<?=q($fTo)?>"   title="ถึงวัน">
+  <input type="text" class="datetime-picker" name="f_date_from" value="<?=q($fFrom)?>" placeholder="ตั้งแต่วันและเวลา">
+  <input type="text" class="datetime-picker" name="f_date_to"   value="<?=q($fTo)?>"   placeholder="ถึงวันและเวลา">
+  
   <button type="submit" class="btn-filter">🔍 กรอง</button>
   <a href="index.php" class="btn-clear">ล้าง</a>
   <a href="?<?=$qs?>&export=1" class="btn-export">⬇ Export CSV (<?=number_format($total)?> แถว)</a>
 </form>
 
-<!-- ===== Data Table ===== -->
 <div class="tbl-wrap">
   <table class="data-tbl">
     <thead>
@@ -254,7 +255,6 @@ $CLS = [
   </table>
 </div>
 
-<!-- ===== Pagination ===== -->
 <?php if ($pages > 1): ?>
 <div class="pagination">
   <?php if ($page > 1): ?>
@@ -276,7 +276,6 @@ $CLS = [
 <p class="pg-info">หน้า <?=$page?>/<?=$pages?> · <?=number_format($total)?> แถว</p>
 <?php endif; ?>
 
-<!-- ===== Danger Zone ===== -->
 <?php if ($total > 0): ?>
 <div class="danger-zone">
   <h4>⚠ Danger Zone — ลบข้อมูล</h4>
@@ -286,6 +285,8 @@ $CLS = [
   <form method="post" onsubmit="return confirm('ยืนยันลบ <?=number_format($total)?> แถว? ไม่สามารถกู้คืนได้!')">
     <input type="hidden" name="f_class"       value="<?=q($fClass)?>">
     <input type="hidden" name="f_device"      value="<?=q($fDev)?>">
+    <input type="hidden" name="f_date_from"   value="<?=q($fFrom)?>">
+    <input type="hidden" name="f_date_to"     value="<?=q($fTo)?>">
     <input type="hidden" name="delete_filtered" value="1">
     <button type="submit" class="btn-danger">
       🗑 ลบ <?=number_format($total)?> แถวที่กรองนี้
@@ -294,12 +295,24 @@ $CLS = [
 </div>
 <?php endif; ?>
 
-</div><!-- /wrap -->
-
-<footer class="a-footer">
+</div><footer class="a-footer">
   Plant Stress TinyML Admin Panel · PHP + MySQLi ·
   <a href="../dashboard/index.php">Dashboard</a> ·
   <a href="../index.php">หน้าหลัก</a>
 </footer>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+<script>
+  flatpickr(".datetime-picker", {
+      enableTime: true,          // เปิดใช้งานการเลือกเวลา
+      enableSeconds: true,       // เปิดใช้งานระดับวินาที
+      time_24hr: true,           // แสดงผลรูปแบบ 24 ชั่วโมง (ไม่เอา AM/PM)
+      dateFormat: "Y-m-d H:i:s", // รูปแบบข้อมูลดิบที่ส่งไปหา SQL Query ด้านบน
+      altInput: true,
+      altFormat: "d/m/Y H:i:S",  // 🚀 บังคับฟอร์แมตการแสดงผลบนช่อง Input เป็น วัน/เดือน/ปี ช:น:ว
+      locale: "th"               // แปลง UI ปฏิทินเป็นภาษาไทย
+  });
+</script>
 </body>
 </html>
